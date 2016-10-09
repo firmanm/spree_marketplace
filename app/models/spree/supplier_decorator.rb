@@ -21,7 +21,9 @@ Spree::Supplier.class_eval do
   def stripe_recipient_setup
     return if self.tax_id.blank? and self.address.blank?
 
-    recipient = Stripe::Recipient.create(
+    recipient = Stripe::Account.create(
+      :country => "US",
+      :managed => true,
       :name => (self.merchant_type == 'business' ? self.name : "#{self.address.first_name} #{self.address.last_name}"),
       :type => (self.merchant_type == 'business' ? 'corporation' : "individual"),
       :email => self.email,
