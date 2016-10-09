@@ -7,8 +7,8 @@ Spree::Supplier.class_eval do
   validates :tax_id, length: { is: 9, allow_blank: true }
 
   before_create :assign_name
-  before_create :stripe_recipient_setup
-  before_save :stripe_recipient_update
+  before_create :stripe_account_setup
+  before_save :stripe_account_update
 
   private
 
@@ -18,10 +18,10 @@ Spree::Supplier.class_eval do
     self.address.last_name = self.last_name   unless self.address.last_name.present?
   end
 
-  def stripe_recipient_setup
+  def stripe_account_setup
     return if self.tax_id.blank? and self.address.blank?
 
-    recipient = Stripe::Account.create(
+    account = Stripe::Account.create(
       :country => "US",
       :managed => true,
       :email => self.email,
@@ -29,25 +29,25 @@ Spree::Supplier.class_eval do
     )
 
     if new_record?
-      self.token = recipient.id
+      self.token = account.id
     else
-      self.update_column :token, recipient.id
+      self.update_column :token, account.id
     end
   end
 
-  def stripe_recipient_update
+  def stripe_account_update
     unless new_record? or !changed?
       if token.present?
-        rp = Stripe::Recipient.retrieve(token)
+        rp = Stripe::Account.retrieve(token)
         rp.name  = name
         rp.email = email
         if tax_id.present?
           rp.tax_id = tax_id
         end
-        rp.bank_account = bank_accounts.first.token if bank_accounts.first
+        rp.external_account = bank_accounts.first.token if bank_accounts.first
         rp.save
       else
-        stripe_recipient_setup
+        stripe_account_setup
       end
     end
   end
