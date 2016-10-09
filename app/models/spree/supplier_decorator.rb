@@ -36,15 +36,29 @@ Spree::Supplier.class_eval do
   end
 
   def stripe_account_update
-    unless new_record? or !changed?
+    puts "update\n\n\n\n\n\n\n\n"
+    unless new_record?
+      puts token.present?
       if token.present?
         rp = Stripe::Account.retrieve(token)
-        rp.name  = name
+        rp.business_name = name
         rp.email = email
         if tax_id.present?
           rp.tax_id = tax_id
         end
-        rp.external_account = bank_accounts.first.token if bank_accounts.first
+        account = bank_accounts.first
+        puts "dankkkkkkk================================================"
+        puts account
+        puts "dankkkkkkk================================================"
+        unless account.nil?
+          rp.external_account = {
+            :object => "bank_account",
+            :account_number => account.account_number,
+            :routing_number => account.routing_number,
+            :curreny => "USD",
+            :country => "US",
+          }
+        end
         rp.save
       else
         stripe_account_setup
