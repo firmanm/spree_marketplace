@@ -7,8 +7,8 @@ Spree::Supplier.class_eval do
   validates :tax_id, length: { is: 9, allow_blank: true }
 
   before_create :assign_name
-  before_create :stripe_recipient_setup
-  before_save :stripe_recipient_update
+  before_create :stripe_account_setup
+  before_save :stripe_account_update
 
   private
 
@@ -18,36 +18,50 @@ Spree::Supplier.class_eval do
     self.address.last_name = self.last_name   unless self.address.last_name.present?
   end
 
-  def stripe_recipient_setup
+  def stripe_account_setup
     return if self.tax_id.blank? and self.address.blank?
 
-    recipient = Stripe::Recipient.create(
-      :name => (self.merchant_type == 'business' ? self.name : "#{self.address.first_name} #{self.address.last_name}"),
-      :type => (self.merchant_type == 'business' ? 'corporation' : "individual"),
+    account = Stripe::Account.create(
+      :country => "US",
+      :managed => true,
       :email => self.email,
       :bank_account => self.bank_accounts.first.try(:token)
     )
 
     if new_record?
-      self.token = recipient.id
+      self.token = account.id
     else
-      self.update_column :token, recipient.id
+      self.update_column :token, account.id
     end
   end
 
-  def stripe_recipient_update
-    unless new_record? or !changed?
+  def stripe_account_update
+    puts "update\n\n\n\n\n\n\n\n"
+    unless new_record?
+      puts token.present?
       if token.present?
-        rp = Stripe::Recipient.retrieve(token)
-        rp.name  = name
+        rp = Stripe::Account.retrieve(token)
+        rp.business_name = name
         rp.email = email
         if tax_id.present?
           rp.tax_id = tax_id
         end
-        rp.bank_account = bank_accounts.first.token if bank_accounts.first
+        account = bank_accounts.first
+        puts "dankkkkkkk================================================"
+        puts account
+        puts "dankkkkkkk================================================"
+        unless account.nil?
+          rp.external_account = {
+            :object => "bank_account",
+            :account_number => account.account_number,
+            :routing_number => account.routing_number,
+            :curreny => "USD",
+            :country => "US",
+          }
+        end
         rp.save
       else
-        stripe_recipient_setup
+        stripe_account_setup
       end
     end
   end
